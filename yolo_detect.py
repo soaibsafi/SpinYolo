@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 CONFIDENCE_THRESHOLD = 0.5
-NMS_THRESHOLD = 0.4
+NMS_THRESHOLD = 0.5
 
 weights = glob.glob("data/*.weights")[0]
 labels = glob.glob("data/*.txt")[0]
@@ -23,19 +23,28 @@ net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
 layer = net.getLayerNames()
 layer = [layer[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+print(layer)
 
 print("Using {} weights ,{} configs and {} labels.".format(weights, cfg, labels))
 
 
-def detect(img):
-	image = img.GetNDArray()
-	(H, W) = image.shape[:2]
+def detect(image):
+	#image = img.GetNDArray()
+	
+	resized = cv2.resize(image, (416, 416))
+	# print(resized.shape[:2])
+	resized = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+	# print(resized.shape)
+	(H, W) = resized.shape
 
-	blob = cv2.dnn.blobFromImage(image, 1/255, (416, 416), swapRB=True, crop=False)
+	blob = cv2.dnn.blobFromImage(resized, 1/255, (416, 416), swapRB=True, crop=False)
+	print(blob.shape)
+	#blob = blob.reshape(1, 3, 416, 416)
+	#print(blob.shape)
 	net.setInput(blob)
-	start_time = time.time()
+	#start_time = time.time()
 	layer_outs = net.forward(layer)
-	end_time = time.time()
+	#end_time = time.time()
 
 	boxes = list()
 	confidences = list()
@@ -57,7 +66,7 @@ def detect(img):
 				boxes.append([x, y, int(width), int(height)])
 				confidences.append(float(confidence))
 				class_ids.append(class_id)
-				print('%s: %s'%(class_id, confidence))
+				#print('%s: %s'%(class_id, confidence))
 
 	idxs = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, NMS_THRESHOLD)
 	if len(idxs) > 0:
@@ -66,11 +75,11 @@ def detect(img):
 			(w, h) = (boxes[i][2], boxes[i][3])
 
 			color = [int(c) for c in COLORS[class_ids[i]]]
-			cv2.rectangle(image, (x, y), (x+w, y+h), color, 2)
+			cv2.rectangle(resized, (x, y), (x+w, y+h), color, 2)
 			text = "{}: {:.4f}".format(lbls[class_ids[i]], confidences[i])
-			cv2.putText(image, text, (x, y -5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-			label = "Inference Time: {:.2f} ms".format(end_time - start_time)
-			cv2.putText(image, label, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 2)
-
-	cv2.imshow("image", image)
+			cv2.putText(resized, text, (x, y -5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+			#label = "Inference Time: {:.2f} ms".format(end_time - start_time)
+			#cv2.putText(image, label, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 2)
+	#resized2 = cv2.resize(resized, (1024, 768))
+	cv2.imshow("image", resized)
 	#cv2.waitKey(0)
